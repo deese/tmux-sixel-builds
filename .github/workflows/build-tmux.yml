@@ -70,23 +70,29 @@ jobs:
           - distro: ubuntu-lts
             image: ubuntu:${{ needs.check-release.outputs.ubuntu_lts }}
             package: deb
+            artifact_name: ubuntu-${{ needs.check-release.outputs.ubuntu_lts }}
           - distro: ubuntu-interim
             image: ubuntu:${{ needs.check-release.outputs.ubuntu_interim }}
             package: deb
+            artifact_name: ubuntu-${{ needs.check-release.outputs.ubuntu_interim }}
           - distro: debian-stable
             image: debian:${{ needs.check-release.outputs.debian_stable }}
             package: deb
+            artifact_name: debian-${{ needs.check-release.outputs.debian_stable }}
           - distro: debian-testing
             image: debian:${{ needs.check-release.outputs.debian_testing }}
             package: deb
+            artifact_name: debian-${{ needs.check-release.outputs.debian_testing }}
           - distro: epel-9
             image: rockylinux:${{ needs.check-release.outputs.epel9 }}
             package: rpm
+            artifact_name: el-${{ needs.check-release.outputs.epel9 }}
           - distro: epel-10
             image: rockylinux:${{ needs.check-release.outputs.epel10 }}
             package: rpm
+            artifact_name: el-${{ needs.check-release.outputs.epel10 }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -112,7 +118,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tmux-${{ matrix.distro }}-${{ needs.check-release.outputs.version }}
+          name: tmux-${{ needs.check-release.outputs.version }}-${{ matrix.artifact_name }}
           path: output/*.${{ matrix.package }}
           retention-days: 30
 
@@ -162,7 +168,7 @@ jobs:
 
           ### RHEL/CentOS/Rocky Linux
           \`\`\`bash
-          sudo dnf install ./tmux-*.rpm
+          sudo dnf install ./libsixel-*.rpm ./utf8proc-*.rpm ./tmux-*.rpm
           \`\`\`
 
           ## Features
