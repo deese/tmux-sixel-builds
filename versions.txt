@@ -3,7 +3,3 @@ ubuntu_interim=25.10
 debian_stable=12
 debian_testing=testing
 epel9=9
-# Rocky Linux 10.x - use specific version tag if '10' is not available
-# Rocky Linux 10.2 was released May 2026
-# Try: 10.2, 10.0, or use quay.io/rockylinux/rockylinux:10.2
-epel10=10.2
