@@ -48,23 +48,11 @@ build_deb() {
     if [ -f "tmux.info" ]; then
         tic -x -o terminfo tmux.info || true
     fi
-    if [ ! -f "terminfo/t/tmux" ] && [ ! -f "terminfo/t/tmux-256color" ]; then
-        for src in $(find /usr/share/terminfo -name "tmux*" 2>/dev/null); do
-            rel="${src#/usr/share/terminfo/}"
-            dst_dir="terminfo/$(dirname "$rel")"
-            mkdir -p "$dst_dir"
-            cp "$src" "$dst_dir/" || true
-        done
-    fi
-    if [ ! -f "terminfo/t/tmux" ] && [ ! -f "terminfo/t/tmux-256color" ]; then
-        apt-get install -y ncurses-term 2>/dev/null || true
-        for src in $(find /usr/share/terminfo -name "tmux*" 2>/dev/null); do
-            rel="${src#/usr/share/terminfo/}"
-            dst_dir="terminfo/$(dirname "$rel")"
-            mkdir -p "$dst_dir"
-            cp "$src" "$dst_dir/" || true
-        done
-    fi
+    # NOTE: For DEB builds, do NOT copy system terminfo files into the package.
+    # Modern ncurses-base (e.g., 6.6+20251231) already provides tmux terminfo entries.
+    # Including them causes dpkg conflicts with ncurses-base.
+    # If tmux.info is missing, we simply skip terminfo packaging; the target
+    # system will rely on ncurses-base (a dependency of libncurses6).
 
     # Download nfpm
     NFPM_VERSION="2.41.0"
@@ -91,7 +79,8 @@ build_deb() {
 
     PKG_TYPE="deb"
     NFPM_CONFIG="/repo/nfpm/deb.yaml"
-    OUTPUT_NAME="tmux-${VERSION}-${DISTRO}_${NFPM_ARCH}.deb"
+    PKG_DISTRO="${ARTIFACT_NAME:-${DISTRO}}"
+    OUTPUT_NAME="tmux-${VERSION}-${PKG_DISTRO}_${NFPM_ARCH}.deb"
 
     if [ ! -d "terminfo" ] || [ -z "$(find terminfo -type f 2>/dev/null)" ]; then
         echo "Creating temporary nfpm config without terminfo..."

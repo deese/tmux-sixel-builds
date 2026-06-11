@@ -110,6 +110,7 @@ jobs:
             -v "$(pwd)/output:/output" \
             -e "DISTRO=${DISTRO}" \
             -e "VERSION=${VERSION}" \
+            -e "ARTIFACT_NAME=${{ matrix.artifact_name }}" \
             "${IMAGE}" \
             /repo/scripts/entrypoint.sh "${DISTRO}" "${VERSION}"
           
