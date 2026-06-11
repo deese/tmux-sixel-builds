@@ -1,0 +1,173 @@
+name: Build tmux packages
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Override tmux version to build'
+        required: false
+        type: string
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      should_build: ${{ steps.compare.outputs.should_build }}
+      ubuntu_lts: ${{ steps.versions.outputs.ubuntu_lts }}
+      ubuntu_interim: ${{ steps.versions.outputs.ubuntu_interim }}
+      debian_stable: ${{ steps.versions.outputs.debian_stable }}
+      debian_testing: ${{ steps.versions.outputs.debian_testing }}
+      epel9: ${{ steps.versions.outputs.epel9 }}
+      epel10: ${{ steps.versions.outputs.epel10 }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for new tmux release
+        id: get_version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using manually provided version: $VERSION"
+          else
+            VERSION=$(curl -s https://api.github.com/repos/tmux/tmux/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+            echo "Latest tmux version: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compare with existing releases
+        id: compare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if gh release view "tmux-${VERSION}" --repo "${{ github.repository }}" &>/dev/null; then
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "Release tmux-${VERSION} already exists. Skipping build."
+          else
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "New release detected: tmux-${VERSION}. Proceeding with build."
+          fi
+
+      - name: Read distro versions
+        id: versions
+        run: |
+          while IFS='=' read -r key value; do
+            echo "${key}=${value}" >> $GITHUB_OUTPUT
+          done < versions.txt
+
+  build-matrix:
+    needs: check-release
+    if: needs.check-release.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: ubuntu-lts
+            image: ubuntu:${{ needs.check-release.outputs.ubuntu_lts }}
+            package: deb
+          - distro: ubuntu-interim
+            image: ubuntu:${{ needs.check-release.outputs.ubuntu_interim }}
+            package: deb
+          - distro: debian-stable
+            image: debian:${{ needs.check-release.outputs.debian_stable }}
+            package: deb
+          - distro: debian-testing
+            image: debian:${{ needs.check-release.outputs.debian_testing }}
+            package: deb
+          - distro: epel-9
+            image: rockylinux:${{ needs.check-release.outputs.epel9 }}
+            package: rpm
+          - distro: epel-10
+            image: rockylinux:${{ needs.check-release.outputs.epel10 }}
+            package: rpm
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build tmux for ${{ matrix.distro }}
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          DISTRO="${{ matrix.distro }}"
+          IMAGE="${{ matrix.image }}"
+          
+          echo "Building tmux ${VERSION} for ${DISTRO} using ${IMAGE}"
+          
+          docker run --rm \
+            -v "$(pwd):/repo" \
+            -v "$(pwd)/output:/output" \
+            -e "DISTRO=${DISTRO}" \
+            -e "VERSION=${VERSION}" \
+            "${IMAGE}" \
+            /repo/scripts/entrypoint.sh "${DISTRO}" "${VERSION}"
+          
+          ls -la output/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tmux-${{ matrix.distro }}-${{ needs.check-release.outputs.version }}
+          path: output/*.${{ matrix.package }}
+          retention-days: 30
+
+  release:
+    needs: [check-release, build-matrix]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: needs.check-release.outputs.should_build == 'true'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts -type f -ls
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          
+          gh release create "tmux-${VERSION}" \
+            --repo "${{ github.repository }}" \
+            --title "tmux ${VERSION} - Multi-distro Sixel/Kitty build" \
+            --notes "Automated build of tmux ${VERSION} with Sixel and Kitty graphics support.
+
+          Built for:
+          - Ubuntu ${{ needs.check-release.outputs.ubuntu_lts }} (LTS)
+          - Ubuntu ${{ needs.check-release.outputs.ubuntu_interim }} (Interim)
+          - Debian ${{ needs.check-release.outputs.debian_stable }} (Stable)
+          - Debian ${{ needs.check-release.outputs.debian_testing }} (Testing)
+          - EPEL ${{ needs.check-release.outputs.epel9 }}
+          - EPEL ${{ needs.check-release.outputs.epel10 }}
+
+          ## Installation
+
+          ### Debian/Ubuntu
+          \`\`\`bash
+          sudo dpkg -i tmux-*.deb
+          sudo apt-get install -f
+          \`\`\`
+
+          ### RHEL/CentOS/Rocky Linux
+          \`\`\`bash
+          sudo dnf install ./tmux-*.rpm
+          \`\`\`
+
+          ## Features
+          - Sixel graphics support
+          - Kitty graphics protocol support
+          - Includes tmux terminfo database
+          - Replaces system tmux-terminfo package" \
+            artifacts/*

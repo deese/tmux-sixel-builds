@@ -1,0 +1,30 @@
+name: tmux
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+release: 1
+license: ISC
+maintainer: "Auto Builder <build@localhost>"
+description: |
+  Terminal multiplexer with image support (Sixel + Kitty).
+vendor: tmux
+url: https://github.com/tmux/tmux
+depends:
+  - libevent
+  - ncurses-libs
+  - libsixel
+  - utf8proc
+provides:
+  - tmux-terminfo
+obsoletes:
+  - tmux-terminfo
+contents:
+  - src: ./tmux
+    dst: /usr/bin/tmux
+  - src: ./tmux.1
+    dst: /usr/share/man/man1/tmux.1
+  - src: ./example_tmux.conf
+    dst: /usr/share/doc/tmux/example_tmux.conf
+  - src: ./terminfo
+    dst: /usr/share/terminfo
+    type: tree

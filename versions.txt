@@ -1,0 +1,6 @@
+ubuntu_lts=26.04
+ubuntu_interim=25.10
+debian_stable=12
+debian_testing=testing
+epel9=9
+epel10=10
