@@ -82,7 +82,7 @@ fi
 # Download nfpm
 NFPM_VERSION="2.41.0"
 echo "Downloading nfpm ${NFPM_VERSION}..."
-curl -sL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_${NFPM_ARCH}.tar.gz" | tar -xz -C /usr/local/bin nfpm
+curl -sL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin nfpm
 
 # Prepare files for nfpm
 mkdir -p /tmp/nfpm-build
