@@ -13,7 +13,7 @@ depends:
   - libevent-core-2.1-7
   - libncurses6
   - libsixel1
-  - libutf8proc2
+  - libutf8proc3
 provides:
   - tmux-terminfo
 conflicts:
